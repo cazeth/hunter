@@ -654,7 +654,7 @@ impl ListView<Files>
         if self.searching.is_none() {
             self.core.show_status("No search pattern set!").log();
         }
-        let prev_search = self.searching.clone()?;
+        let prev_search = self.searching.clone().ok_or(HError::NoneError)?;
         let selection = self.get_selection();
 
         let file = self.content
@@ -682,7 +682,7 @@ impl ListView<Files>
         if self.searching.is_none() {
             self.core.show_status("No search pattern set!").log();
         }
-        let prev_search = self.searching.clone()?;
+        let prev_search = self.searching.clone().ok_or(HError::NoneError)?;
 
 
         self.reverse_sort();

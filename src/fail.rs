@@ -3,9 +3,8 @@ use failure::Fail;
 //use failure::Backtrace;
 //use async_value::AError;
 
-
-use termion::event::Key;
 use parking_lot::Mutex;
+use termion::event::Key;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -14,8 +13,6 @@ use crate::foldview::LogEntry;
 use crate::mediaview::MediaError;
 
 pub type HResult<T> = Result<T, HError>;
-
-
 
 #[derive(Fail, Debug, Clone)]
 pub enum HError {
@@ -26,17 +23,23 @@ pub enum HError {
     #[fail(display = "Can't lock!")]
     TryLockError,
     #[fail(display = "Channel failed: {}", error)]
-    ChannelTryRecvError{#[cause] error: std::sync::mpsc::TryRecvError},
+    ChannelTryRecvError {
+        #[cause]
+        error: std::sync::mpsc::TryRecvError,
+    },
     #[fail(display = "Channel failed: {}", error)]
-    ChannelRecvError{#[cause] error: std::sync::mpsc::RecvError},
+    ChannelRecvError {
+        #[cause]
+        error: std::sync::mpsc::RecvError,
+    },
     #[fail(display = "Channel failed")]
     ChannelSendError,
     #[fail(display = "Timer ran out while waiting for message on channel!")]
     ChannelRecvTimeout(#[cause] std::sync::mpsc::RecvTimeoutError),
     #[fail(display = "Previewer failed on file: {}", file)]
-    PreviewFailed{file: String},
+    PreviewFailed { file: String },
     #[fail(display = "StalePreviewer for file: {}", file)]
-    StalePreviewError{file: String},
+    StalePreviewError { file: String },
     #[fail(display = "Accessed stale value")]
     StaleError,
     #[fail(display = "Failed: {}", _0)]
@@ -48,7 +51,7 @@ pub enum HError {
     #[fail(display = "No widget found")]
     NoWidgetError,
     #[fail(display = "Path: {:?} not in this directory: {:?}", path, dir)]
-    WrongDirectoryError{ path: PathBuf, dir: PathBuf},
+    WrongDirectoryError { path: PathBuf, dir: PathBuf },
     #[fail(display = "Widget finnished")]
     PopupFinnished,
     #[fail(display = "No completions found")]
@@ -61,18 +64,24 @@ pub enum HError {
     NoHeaderError,
     #[fail(display = "You wanted this!")]
     Quit,
-    #[fail(display = "HBox ratio mismatch: {} widgets, ratio is {:?}", wnum, ratio)]
-    HBoxWrongRatioError{ wnum: usize, ratio: Vec<usize> },
+    #[fail(
+        display = "HBox ratio mismatch: {} widgets, ratio is {:?}",
+        wnum, ratio
+    )]
+    HBoxWrongRatioError { wnum: usize, ratio: Vec<usize> },
     #[fail(display = "Got wrong widget: {}! Wanted: {}", got, wanted)]
-    WrongWidgetError{got: String, wanted: String},
+    WrongWidgetError { got: String, wanted: String },
     #[fail(display = "Strip Prefix Error: {}", error)]
-    StripPrefixError{#[cause] error: std::path::StripPrefixError},
+    StripPrefixError {
+        #[cause]
+        error: std::path::StripPrefixError,
+    },
     #[fail(display = "INofify failed: {}", _0)]
     INotifyError(String),
     #[fail(display = "Tags not loaded yet")]
     TagsNotLoadedYetError,
     #[fail(display = "Undefined key: {:?}", key)]
-    WidgetUndefinedKeyError{key: Key},
+    WidgetUndefinedKeyError { key: Key },
     #[fail(display = "Terminal has been resized!")]
     TerminalResizedError,
     #[fail(display = "Widget has been resized!")]
@@ -119,15 +128,19 @@ impl HError {
         Err(HError::Quit)
     }
     pub fn wrong_ratio<T>(wnum: usize, ratio: Vec<usize>) -> HResult<T> {
-        Err(HError::HBoxWrongRatioError{ wnum: wnum, ratio: ratio })
+        Err(HError::HBoxWrongRatioError {
+            wnum: wnum,
+            ratio: ratio,
+        })
     }
     pub fn no_widget<T>() -> HResult<T> {
         Err(HError::NoWidgetError)
     }
     pub fn wrong_widget<T>(got: &str, wanted: &str) -> HResult<T> {
-        Err(HError::WrongWidgetError{ got: got.to_string(),
-                                      wanted: wanted.to_string() })
-
+        Err(HError::WrongWidgetError {
+            got: got.to_string(),
+            wanted: wanted.to_string(),
+        })
     }
     pub fn popup_finnished<T>() -> HResult<T> {
         Err(HError::PopupFinnished)
@@ -139,14 +152,14 @@ impl HError {
         Err(HError::WidgetUndefinedKeyError { key: key })
     }
     pub fn wrong_directory<T>(path: PathBuf, dir: PathBuf) -> HResult<T> {
-        Err(HError::WrongDirectoryError{ path: path,
-                                         dir: dir })
-
+        Err(HError::WrongDirectoryError {
+            path: path,
+            dir: dir,
+        })
     }
     pub fn preview_failed<T>(file: &crate::files::File) -> HResult<T> {
         let name = file.name.clone();
-        Err(HError::PreviewFailed{ file: name })
-
+        Err(HError::PreviewFailed { file: name })
     }
 
     pub fn terminal_resized<T>() -> HResult<T> {
@@ -176,16 +189,13 @@ impl HError {
     pub fn input_updated<T>(input: String) -> HResult<T> {
         Err(HError::MiniBufferInputUpdated(input))
     }
-
-
 }
 
 #[derive(Fail, Debug, Clone)]
 pub enum ErrorCause {
     #[fail(display = "{}", _0)]
-    Str(String)
+    Str(String),
 }
-
 
 lazy_static! {
     static ref LOG: Mutex<Vec<LogEntry>> = Mutex::new(vec![]);
@@ -201,7 +211,10 @@ pub fn put_log<L: Into<LogEntry>>(log: L) -> HResult<()> {
     Ok(())
 }
 
-pub trait ErrorLog where Self: Sized {
+pub trait ErrorLog
+where
+    Self: Sized,
+{
     fn log(self);
     fn log_and(self) -> Self;
 }
@@ -221,7 +234,6 @@ pub trait ErrorLog where Self: Sized {
 //     }
 // }
 
-
 // impl<T> ErrorLog for Result<T, AError> {
 //     fn log(self) {
 //         if let Err(err) = self {
@@ -238,7 +250,9 @@ pub trait ErrorLog where Self: Sized {
 // }
 
 impl<T, E> ErrorLog for Result<T, E>
-where E: Into<HError> + Clone {
+where
+    E: Into<HError> + Clone,
+{
     fn log(self) {
         if let Err(err) = self {
             let err: HError = err.into();
@@ -255,11 +269,12 @@ where E: Into<HError> + Clone {
 }
 
 impl<E> ErrorLog for E
-where E: Into<HError> + Clone {
+where
+    E: Into<HError> + Clone,
+{
     fn log(self) {
         let err: HError = self.into();
         put_log(&err).ok();
-
     }
     fn log_and(self) -> Self {
         let err: HError = self.clone().into();
@@ -267,9 +282,6 @@ where E: Into<HError> + Clone {
         self
     }
 }
-
-
-
 
 impl From<std::io::Error> for HError {
     fn from(error: std::io::Error) -> Self {
@@ -327,16 +339,9 @@ impl<T> From<std::sync::TryLockError<T>> for HError {
     }
 }
 
-impl From<std::option::NoneError> for HError {
-    fn from(_error: std::option::NoneError) -> Self {
-        let err = HError::NoneError;
-        err
-    }
-}
-
 impl From<std::path::StripPrefixError> for HError {
     fn from(error: std::path::StripPrefixError) -> Self {
-        let err = HError::StripPrefixError{error: error };
+        let err = HError::StripPrefixError { error: error };
         err
     }
 }
@@ -362,7 +367,6 @@ impl From<std::str::Utf8Error> for HError {
     }
 }
 
-
 impl From<std::num::ParseIntError> for HError {
     fn from(error: std::num::ParseIntError) -> Self {
         let err = HError::ParseIntError(error);
@@ -384,7 +388,6 @@ impl From<std::char::ParseCharError> for HError {
     }
 }
 
-
 // MIME Errors
 
 #[derive(Fail, Debug, Clone)]
@@ -393,7 +396,7 @@ pub enum MimeError {
     NoFileProvided,
     #[fail(display = "File access failed! Error: {}", _0)]
     AccessFailed(Box<HError>),
-    #[fail(display = "No MIME type found for this file",)]
+    #[fail(display = "No MIME type found for this file")]
     NoMimeFound,
     #[fail(display = "Paniced while trying to find MIME type for: {}!", _0)]
     Panic(String),
@@ -404,7 +407,6 @@ impl From<MimeError> for HError {
         HError::Mime(e)
     }
 }
-
 
 impl From<KeyBindError> for HError {
     fn from(e: KeyBindError) -> Self {
@@ -417,7 +419,6 @@ impl From<crate::minibuffer::MiniBufferEvent> for HError {
         HError::MiniBufferEvent(e)
     }
 }
-
 
 #[derive(Fail, Debug, Clone)]
 pub enum KeyBindError {
@@ -434,8 +435,7 @@ pub enum KeyBindError {
     #[fail(display = "Couldn't parse as either char or u8: {}", _0)]
     CharOrNumParseError(String),
     #[fail(display = "Wanted {}, but got {}!", _0, _1)]
-    CharOrNumWrongType(String, String)
-
+    CharOrNumWrongType(String, String),
 }
 
 impl From<ini::ini::Error> for KeyBindError {

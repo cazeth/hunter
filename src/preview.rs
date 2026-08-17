@@ -234,7 +234,7 @@ enum ExtPreviewer {
 
 fn find_previewer(file: &File, g_mode: bool) -> HResult<ExtPreviewer> {
     let path = crate::paths::previewers_path()?;
-    let ext = file.path.extension()?;
+    let ext = file.path.extension().ok_or(HError::NoneError)?;
 
     // Try to find a graphical previewer first
     if g_mode {
@@ -273,7 +273,7 @@ fn find_previewer(file: &File, g_mode: bool) -> HResult<ExtPreviewer> {
         }
     }
 
-    Ok(ExtPreviewer::Text(previewer??))
+    Ok(ExtPreviewer::Text(previewer.ok_or(HError::NoneError)??))
 }
 
 
@@ -604,7 +604,7 @@ impl Previewer {
             },
             ExtPreviewer::Graphics(previewer) => {
                 let lines = Previewer::run_external(previewer, file, stale)?;
-                let gfile = lines.first()?;
+                let gfile = lines.first().ok_or(HError::NoneError)?;
                 let imgview = ImgView::new_from_file(core.clone(),
                                                      &PathBuf::from(&gfile))?;
                 Ok(PreviewWidget::ImgView(imgview))
