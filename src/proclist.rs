@@ -9,7 +9,7 @@ use std::os::unix::ffi::OsStrExt;
 use termion::event::Key;
 use unicode_width::UnicodeWidthStr;
 use osstrtools::{OsStringTools, OsStrTools, OsStrConcat};
-use async_value::Stale;
+use crate::async_value::Stale;
 use parking_lot::Mutex;
 
 use crate::listview::{Listable, ListView};

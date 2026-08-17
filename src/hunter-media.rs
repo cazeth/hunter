@@ -14,7 +14,8 @@ use gstreamer::prelude::*;
 #[cfg(feature = "video")]
 use gstreamer_app;
 
-use failure::{Error, format_err};
+use anyhow::Error;
+use anyhow::anyhow as format_err;
 
 use std::io::Write;
 #[cfg(feature = "video")]

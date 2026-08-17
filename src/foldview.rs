@@ -1,5 +1,4 @@
 use termion::event::Key;
-use failure::Fail;
 use chrono::{DateTime, Local};
 
 use crate::term;
@@ -61,14 +60,8 @@ impl From<&HError> for LogEntry {
                                   time.format("%F %R"),
                                   logcolor,
                                   from);
-
-
-        if let Some(cause) = from.cause() {
+        if let Some(cause) = std::error::Error::source(from) {
             content += &format!("{}\n", cause);
-        }
-
-        if let Some(backtrace) = from.backtrace() {
-            content += &format!("{}\n", backtrace);
         }
 
         let lines = content.lines().count();

@@ -1,4 +1,4 @@
-use async_value::{Async, Stale};
+use crate::async_value::{Async, Stale};
 use termion::event::Key;
 use parking_lot::Mutex;
 

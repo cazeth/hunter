@@ -1,7 +1,4 @@
-use failure;
-use failure::Fail;
 //use failure::Backtrace;
-//use async_value::AError;
 
 use parking_lot::Mutex;
 use termion::event::Key;
@@ -14,109 +11,106 @@ use crate::mediaview::MediaError;
 
 pub type HResult<T> = Result<T, HError>;
 
-#[derive(Fail, Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum HError {
-    #[fail(display = "IO error: {} ", _0)]
+    #[error("IO error: {0} ")]
     IoError(String),
-    #[fail(display = "Mutex failed")]
+    #[error("Mutex failed")]
     MutexError,
-    #[fail(display = "Can't lock!")]
+    #[error("Can't lock!")]
     TryLockError,
-    #[fail(display = "Channel failed: {}", error)]
+    #[error("Channel failed: {error}")]
     ChannelTryRecvError {
-        #[cause]
+        #[source]
         error: std::sync::mpsc::TryRecvError,
     },
-    #[fail(display = "Channel failed: {}", error)]
+    #[error("Channel failed: {error}")]
     ChannelRecvError {
-        #[cause]
+        #[source]
         error: std::sync::mpsc::RecvError,
     },
-    #[fail(display = "Channel failed")]
+    #[error("Channel failed")]
     ChannelSendError,
-    #[fail(display = "Timer ran out while waiting for message on channel!")]
-    ChannelRecvTimeout(#[cause] std::sync::mpsc::RecvTimeoutError),
-    #[fail(display = "Previewer failed on file: {}", file)]
+    #[error("Timer ran out while waiting for message on channel!")]
+    ChannelRecvTimeout(#[source] std::sync::mpsc::RecvTimeoutError),
+    #[error("Previewer failed on file: {file}")]
     PreviewFailed { file: String },
-    #[fail(display = "StalePreviewer for file: {}", file)]
+    #[error("StalePreviewer for file: {file}")]
     StalePreviewError { file: String },
-    #[fail(display = "Accessed stale value")]
+    #[error("Accessed stale value")]
     StaleError,
-    #[fail(display = "Failed: {}", _0)]
+    #[error("Failed: {0}")]
     Error(String),
-    #[fail(display = "Was None!")]
+    #[error("Was None!")]
     NoneError,
-    #[fail(display = "Async Error: {}", _0)]
-    AError(async_value::AError),
-    #[fail(display = "No widget found")]
+    #[error("Async Error: {0}")]
+    AError(crate::async_value::AError),
+    #[error("No widget found")]
     NoWidgetError,
-    #[fail(display = "Path: {:?} not in this directory: {:?}", path, dir)]
+    #[error("Path: {path:?} not in this directory: {dir:?}")]
     WrongDirectoryError { path: PathBuf, dir: PathBuf },
-    #[fail(display = "Widget finnished")]
+    #[error("Widget finnished")]
     PopupFinnished,
-    #[fail(display = "No completions found")]
+    #[error("No completions found")]
     NoCompletionsError,
-    #[fail(display = "No more history")]
+    #[error("No more history")]
     NoHistoryError,
-    #[fail(display = "No core for widget")]
+    #[error("No core for widget")]
     NoWidgetCoreError,
-    #[fail(display = "No header for widget")]
+    #[error("No header for widget")]
     NoHeaderError,
-    #[fail(display = "You wanted this!")]
+    #[error("You wanted this!")]
     Quit,
-    #[fail(
-        display = "HBox ratio mismatch: {} widgets, ratio is {:?}",
-        wnum, ratio
-    )]
+    #[error("HBox ratio mismatch: {wnum} widgets, ratio is {ratio:?}")]
     HBoxWrongRatioError { wnum: usize, ratio: Vec<usize> },
-    #[fail(display = "Got wrong widget: {}! Wanted: {}", got, wanted)]
+    #[error("Got wrong widget: {got}! Wanted: {wanted}")]
     WrongWidgetError { got: String, wanted: String },
-    #[fail(display = "Strip Prefix Error: {}", error)]
+    #[error("Strip Prefix Error: {error}")]
     StripPrefixError {
-        #[cause]
+        #[source]
         error: std::path::StripPrefixError,
     },
-    #[fail(display = "INofify failed: {}", _0)]
+    #[error("INofify failed: {0}")]
     INotifyError(String),
-    #[fail(display = "Tags not loaded yet")]
+    #[error("Tags not loaded yet")]
     TagsNotLoadedYetError,
-    #[fail(display = "Undefined key: {:?}", key)]
+    #[error("Undefined key: {key:?}")]
     WidgetUndefinedKeyError { key: Key },
-    #[fail(display = "Terminal has been resized!")]
+    #[error("Terminal has been resized!")]
     TerminalResizedError,
-    #[fail(display = "Widget has been resized!")]
+    #[error("Widget has been resized!")]
     WidgetResizedError,
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Log(String),
-    #[fail(display = "Metadata already processed")]
+    #[error("Metadata already processed")]
     MetadataProcessedError,
-    #[fail(display = "No files to take from widget")]
+    #[error("No files to take from widget")]
     WidgetNoFilesError,
-    #[fail(display = "Invalid line in settings file: {}", _0)]
+    #[error("Invalid line in settings file: {0}")]
     ConfigLineError(String),
-    #[fail(display = "New input in Minibuffer")]
+    #[error("New input in Minibuffer")]
     MiniBufferInputUpdated(String),
-    #[fail(display = "Failed to parse into UTF8")]
+    #[error("Failed to parse into UTF8")]
     UTF8ParseError(std::str::Utf8Error),
-    #[fail(display = "Failed to parse integer!")]
+    #[error("Failed to parse integer!")]
     ParseIntError(std::num::ParseIntError),
-    #[fail(display = "Failed to parse char!")]
+    #[error("Failed to parse char!")]
     ParseCharError(std::char::ParseCharError),
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Media(MediaError),
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Mime(MimeError),
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     KeyBind(KeyBindError),
-    #[fail(display = "FileBrowser needs to know about all tab's files to run exec!")]
+    #[error("FileBrowser needs to know about all tab's files to run exec!")]
     FileBrowserNeedTabFiles,
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     FileError(crate::files::FileError),
-    #[fail(display = "{}", _0)]
-    Nix(#[cause] nix::Error),
-    #[fail(display = "Refresh parent widget!")]
+    #[error("{0}")]
+    Nix(#[source] nix::Error),
+    #[error("Refresh parent widget!")]
     RefreshParent,
-    #[fail(display = "Refresh parent widget!")]
+    #[error("Refresh parent widget!")]
     MiniBufferEvent(crate::minibuffer::MiniBufferEvent),
 }
 
@@ -191,9 +185,9 @@ impl HError {
     }
 }
 
-#[derive(Fail, Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum ErrorCause {
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Str(String),
 }
 
@@ -290,8 +284,8 @@ impl From<std::io::Error> for HError {
     }
 }
 
-impl From<failure::Error> for HError {
-    fn from(error: failure::Error) -> Self {
+impl From<anyhow::Error> for HError {
+    fn from(error: anyhow::Error) -> Self {
         let err = HError::Error(format!("{}", error));
         err
     }
@@ -353,8 +347,8 @@ impl From<notify::Error> for HError {
     }
 }
 
-impl From<async_value::AError> for HError {
-    fn from(error: async_value::AError) -> Self {
+impl From<crate::async_value::AError> for HError {
+    fn from(error: crate::async_value::AError) -> Self {
         let err = HError::AError(error);
         err
     }
@@ -390,15 +384,15 @@ impl From<std::char::ParseCharError> for HError {
 
 // MIME Errors
 
-#[derive(Fail, Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum MimeError {
-    #[fail(display = "Need a file to determine MIME type")]
+    #[error("Need a file to determine MIME type")]
     NoFileProvided,
-    #[fail(display = "File access failed! Error: {}", _0)]
+    #[error("File access failed! Error: {0}")]
     AccessFailed(Box<HError>),
-    #[fail(display = "No MIME type found for this file")]
+    #[error("No MIME type found for this file")]
     NoMimeFound,
-    #[fail(display = "Paniced while trying to find MIME type for: {}!", _0)]
+    #[error("Paniced while trying to find MIME type for: {0}!")]
     Panic(String),
 }
 
@@ -420,21 +414,21 @@ impl From<crate::minibuffer::MiniBufferEvent> for HError {
     }
 }
 
-#[derive(Fail, Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum KeyBindError {
-    #[fail(display = "Movement has not been defined for this widget")]
+    #[error("Movement has not been defined for this widget")]
     MovementUndefined,
-    #[fail(display = "Keybind defined with wrong key: {} -> {}", _0, _1)]
+    #[error("Keybind defined with wrong key: {0} -> {1}")]
     WrongKey(String, String),
-    #[fail(display = "Defined keybind for non-existing action: {}", _0)]
+    #[error("Defined keybind for non-existing action: {0}")]
     WrongAction(String),
-    #[fail(display = "Failed to parse keybind: {}", _0)]
+    #[error("Failed to parse keybind: {0}")]
     ParseKeyError(String),
-    #[fail(display = "Trouble with ini file! Error: {}", _0)]
+    #[error("Trouble with ini file! Error: {0}")]
     IniError(Arc<ini::ini::Error>),
-    #[fail(display = "Couldn't parse as either char or u8: {}", _0)]
+    #[error("Couldn't parse as either char or u8: {0}")]
     CharOrNumParseError(String),
-    #[fail(display = "Wanted {}, but got {}!", _0, _1)]
+    #[error("Wanted {0}, but got {1}!")]
     CharOrNumWrongType(String, String),
 }
 

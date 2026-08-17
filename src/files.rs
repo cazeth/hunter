@@ -11,8 +11,6 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::ffi::OsStr;
 
-use failure;
-use failure::Fail;
 use lscolors::LsColors;
 use tree_magic_fork;
 use users::{get_current_username,
@@ -20,7 +18,7 @@ use users::{get_current_username,
             get_user_by_uid,
             get_group_by_gid};
 use chrono::TimeZone;
-use failure::Error;
+use anyhow::Error;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use natord::compare;
 use mime_guess;
@@ -30,7 +28,7 @@ use nix::{dir::*,
           sys::stat::Mode};
 
 use pathbuftools::PathBufTools;
-use async_value::{Async, Stale, StopIter};
+use crate::async_value::{Async, Stale, StopIter};
 
 use crate::fail::{HResult, HError, ErrorLog};
 use crate::dirty::{DirtyBit, Dirtyable};
@@ -96,15 +94,15 @@ pub fn stop_ticking() {
     IOTICK_CLIENTS.fetch_sub(1, Ordering::Relaxed);
 }
 
-#[derive(Fail, Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum FileError {
-    #[fail(display = "Metadata still pending!")]
+    #[error("Metadata still pending!")]
     MetaPending,
-    #[fail(display = "Couldn't open directory! Error: {}", _0)]
-    OpenDir(#[cause] nix::Error),
-    #[fail(display = "Couldn't read files! Error: {}", _0)]
-    ReadFiles(#[cause] nix::Error),
-    #[fail(display = "Had problems with getdents64 in directory: {}", _0)]
+    #[error("Couldn't open directory! Error: {0}")]
+    OpenDir(#[source] nix::Error),
+    #[error("Couldn't read files! Error: {0}")]
+    ReadFiles(#[source] nix::Error),
+    #[error("Had problems with getdents64 in directory: {0}")]
     GetDents(String),
 }
 
@@ -1633,9 +1631,8 @@ impl File {
     pub fn pretty_mtime(&self) -> Option<String> {
         let meta = self.meta()?;
         let meta = meta.as_ref()?;
-
         let time: chrono::DateTime<chrono::Local>
-            = chrono::Local.timestamp(meta.mtime(), 0);
+            = chrono::Local.timestamp_opt(meta.mtime(), 0).single()?;
         Some(time.format("%F %R").to_string())
     }
 

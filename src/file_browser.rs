@@ -3,7 +3,7 @@ use parking_lot::{Mutex, RwLock};
 
 use pathbuftools::PathBufTools;
 use osstrtools::OsStrTools;
-use async_value::Stale;
+use crate::async_value::Stale;
 
 use std::io::Write;
 use std::sync::Arc;

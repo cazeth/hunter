@@ -4,7 +4,7 @@ use std::io::{Write, stdin};
 
 use termion::event::{Event, Key, MouseEvent};
 use termion::input::TermRead;
-use async_value::{Async, Stale};
+use crate::async_value::{Async, Stale};
 use parking_lot::{Mutex, RwLock};
 
 

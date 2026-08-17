@@ -4,8 +4,6 @@ extern crate termion;
 extern crate unicode_width;
 #[macro_use]
 extern crate lazy_static;
-extern crate failure;
-extern crate failure_derive;
 extern crate natord;
 extern crate dirs_2;
 extern crate lscolors;
@@ -32,9 +30,8 @@ extern crate crossbeam;
 
 extern crate osstrtools;
 extern crate pathbuftools;
-extern crate async_value;
+mod async_value;
 
-use failure::Fail;
 use clap::{App, Arg};
 
 use std::panic;
@@ -112,7 +109,7 @@ fn main() -> HResult<()> {
         Ok(_) | Err(HError::Quit) => reset_screen(&mut core),
         Err(err) => {
             reset_screen(&mut core)?;
-            eprintln!("{:?}\n{:?}", err, err.cause());
+            eprintln!("{:?}\n{:?}", err, std::error::Error::source(&err));
             return Err(err);
         }
     }

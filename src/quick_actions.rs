@@ -2,7 +2,7 @@ use mime_guess::Mime;
 use termion::event::Key;
 use parking_lot::Mutex;
 
-use async_value::Async;
+use crate::async_value::Async;
 
 use std::path::PathBuf;
 use std::sync::{Arc,

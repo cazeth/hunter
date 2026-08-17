@@ -1,6 +1,6 @@
 use notify::{RecommendedWatcher, Watcher, DebouncedEvent, RecursiveMode};
 
-use async_value::{Async, Stale};
+use crate::async_value::{Async, Stale};
 
 use std::sync::{Arc, RwLock, Weak};
 use std::sync::mpsc::{channel, Sender, Receiver};

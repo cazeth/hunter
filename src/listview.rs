@@ -5,7 +5,7 @@ use termion::event::Key;
 use unicode_width::UnicodeWidthStr;
 use rayon::prelude::*;
 
-use async_value::Stale;
+use crate::async_value::Stale;
 
 use crate::files::{File, Files};
 use crate::fail::{HResult, HError, ErrorLog};

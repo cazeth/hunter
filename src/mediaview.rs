@@ -1,6 +1,6 @@
 use lazy_static;
 use termion::event::Key;
-use failure::{self, Fail};
+
 use parking_lot::{Mutex, RwLock};
 
 use crate::widget::{Widget, WidgetCore};
@@ -16,15 +16,15 @@ use std::sync::{Arc,
 use std::io::{BufRead, BufReader, Write};
 use std::process::Child;
 
-#[derive(Fail, Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum MediaError {
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     NoPreviewer(String),
-    #[fail(display = "No output could be read from {}", _0)]
+    #[error("No output could be read from {0}")]
     NoOutput(String),
-    #[fail(display = "Media viewer exited with status code: {}", _0)]
-    MediaViewerFailed(i32, #[cause] ErrorCause),
-    #[fail(display = "Media viewer killed!")]
+    #[error("Media viewer exited with status code: {0}")]
+    MediaViewerFailed(i32, #[source] ErrorCause),
+    #[error("Media viewer killed!")]
     MediaViewerKilled,
 }
 
@@ -186,7 +186,7 @@ impl MediaView {
                             break;
                         } else {
                             let msg = String::from("hunter-media failed!");
-                            return Err(failure::format_err!("{}", msg))?;
+                            return Err(anyhow::anyhow!("{}", msg))?;
                         }
                     }
 
