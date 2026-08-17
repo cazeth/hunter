@@ -5,9 +5,9 @@ extern crate unicode_width;
 #[macro_use]
 extern crate lazy_static;
 extern crate natord;
-extern crate dirs_2;
+extern crate dirs;
 extern crate lscolors;
-extern crate users;
+extern crate uzers;
 extern crate chrono;
 extern crate rayon;
 extern crate libc;

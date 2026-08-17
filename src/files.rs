@@ -13,7 +13,7 @@ use std::ffi::OsStr;
 
 use lscolors::LsColors;
 use tree_magic_fork;
-use users::{get_current_username,
+use uzers::{get_current_username,
             get_current_groupname,
             get_user_by_uid,
             get_group_by_gid};
@@ -1604,8 +1604,8 @@ impl File {
         let meta = self.meta()?;
         let meta = meta.as_ref()?;
         let uid = meta.uid();
-        let file_user = users::get_user_by_uid(uid)?;
-        let cur_user = users::get_current_username()?;
+        let file_user = uzers::get_user_by_uid(uid)?;
+        let cur_user = uzers::get_current_username()?;
         let color =
             if file_user.name() == cur_user {
                 crate::term::color_green()
@@ -1618,8 +1618,8 @@ impl File {
         let meta = self.meta()?;
         let meta = meta.as_ref()?;
         let gid = meta.gid();
-        let file_group = users::get_group_by_gid(gid)?;
-        let cur_group = users::get_current_groupname()?;
+        let file_group = uzers::get_group_by_gid(gid)?;
+        let cur_group = uzers::get_current_groupname()?;
         let color =
             if file_group.name() == cur_group {
                 crate::term::color_green()

@@ -938,7 +938,7 @@ impl FileBrowser {
             format!("\"{}\" ", &f.path.to_string_lossy())
         }).collect::<String>();
 
-        let mut filepath = dirs_2::home_dir().ok_or(HError::NoneError)?;
+        let mut filepath = dirs::home_dir().ok_or(HError::NoneError)?;
         filepath.push(".hunter_cwd");
 
         let output = format!("HUNTER_CWD=\"{}\"\nF=\"{}\"\nMF=({})\n",
