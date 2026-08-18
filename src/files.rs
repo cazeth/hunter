@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::ffi::OsStr;
 
 use lscolors::LsColors;
-use tree_magic_fork;
+use tree_magic_mini;
 use uzers::{get_current_username,
             get_current_groupname,
             get_user_by_uid,
@@ -1369,12 +1369,13 @@ impl File {
 
         Ok((size as usize, unit))
     }
+        // Only regular files are safe to sniff.
+    fn is_sniffable(&self) -> bool {
+        std::fs::metadata(&self.path)
+            .map(|metadata| metadata.file_type().is_file())
+            .unwrap_or(false)
+    }
 
-    // Sadly tree_magic tends to panic (in unwraps a None) when called
-    // with things like pipes, non-existing files. and other stuff. To
-    // prevent it from crashing hunter it's necessary to catch the
-    // panic with a custom panic hook and handle it gracefully by just
-    // doing nothing
     pub fn get_mime(&self) -> HResult<mime_guess::Mime> {
         use std::panic;
         use crate::fail::MimeError;
@@ -1386,18 +1387,17 @@ impl File {
             }
         }
 
-        // Take and replace panic handler which does nothing
-        let panic_hook = panic::take_hook();
-        panic::set_hook(Box::new(|_| {} ));
+        if !self.is_sniffable() {
+            return Err(HError::Mime(MimeError::Panic(self.name.clone())));
+        }
+
 
         // Catch possible panic caused by tree_magic
         let mime = panic::catch_unwind(|| {
-            let mime = tree_magic_fork::from_filepath(&self.path);
+            let mime = tree_magic_mini::from_filepath(&self.path);
             mime.and_then(|m| mime::Mime::from_str(&m).ok())
         });
 
-        // Restore previous panic handler
-        panic::set_hook(panic_hook);
 
         mime.unwrap_or(None)
             .ok_or_else(|| {
@@ -1408,7 +1408,8 @@ impl File {
 
 
     pub fn is_text(&self) -> bool {
-        tree_magic_fork::match_filepath("text/plain", &self.path)
+        self.is_sniffable() &&
+            tree_magic_mini::match_filepath("text/plain", &self.path)
     }
 
     pub fn is_filtered(&self, filter: &str, filter_selected: bool) -> bool {
