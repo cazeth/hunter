@@ -32,7 +32,9 @@ extern crate osstrtools;
 extern crate pathbuftools;
 mod async_value;
 
-use clap::{App, Arg};
+use clap::Arg;
+use clap::ArgAction;
+use clap::Command;
 
 use std::panic;
 
@@ -138,52 +140,61 @@ fn run(mut core: WidgetCore) -> HResult<()> {
 }
 
 
-fn parse_args() -> clap::ArgMatches<'static> {
-    App::new(clap::crate_name!())
+fn parse_args() -> clap::ArgMatches {
+    // -h is reserved for show-hidden.
+    Command::new(clap::crate_name!())
         .version(clap::crate_version!())
         .author(clap::crate_authors!())
         .about(clap::crate_description!())
-        .setting(clap::AppSettings::ColoredHelp)
+        .disable_help_flag(true)
         .arg(
-            Arg::with_name("update")
-                .short("u")
-                .long("update-conf")
+            Arg::new("help")
+                .long("help")
+                .help("Print help information")
+                .action(ArgAction::Help))
+        .arg(
+            Arg::new("update")
+                .short('u')
+                .long("update-config")
+                .alias("update-conf")
                 .help("Update configuration\n(WARNING: Overwrites modified previewers/actions with default names!\nMain config/keys are safe!)")
-                .takes_value(false))
+                .action(ArgAction::SetTrue))
         .arg(
-            Arg::with_name("animation-off")
-                .short("a")
+            Arg::new("animation-off")
+                .short('a')
                 .long("animation-off")
                 .help("Turn off animations")
-                .takes_value(false))
+                .action(ArgAction::SetTrue))
         .arg(
-            Arg::with_name("show-hidden")
-                .short("h")
+            Arg::new("show-hidden")
+                .short('h')
                 .long("show-hidden")
                 .help("Show hidden files")
-                .takes_value(false),
+                .action(ArgAction::SetTrue),
         )
         .arg(
-            Arg::with_name("icons")
-                .short("i")
+            Arg::new("icons")
+                .short('i')
                 .long("icons")
                 .help("Show icons for different file types")
-                .takes_value(false))
+                .action(ArgAction::SetTrue))
         .arg(
-            Arg::with_name("graphics")
-                .short("g")
+            Arg::new("graphics")
+                .short('g')
                 .long("graphics")
+                .value_parser(["auto", "kitty", "sixel", "unicode"])
+                .value_name("MODE")
                 .help("Show HQ graphics using sixel/kitty")
-                .takes_value(true))
+                .action(ArgAction::Set))
         // For "Add Action" action
         .arg(
-            Arg::with_name("mime")
-                .short("m")
+            Arg::new("mime")
+                .short('m')
                 .long("mime")
                 .help("Print MIME type of file")
-                .takes_value(false))
+                .action(ArgAction::SetTrue))
         .arg(
-            Arg::with_name("path")
+            Arg::new("path")
                 .index(1)
                 .help("Start in <path>"))
         .get_matches()
@@ -192,10 +203,10 @@ fn parse_args() -> clap::ArgMatches<'static> {
 
 
 fn process_args(args: clap::ArgMatches, core: WidgetCore) {
-    let path = args.value_of("path");
+    let path = args.get_one::<String>("path").map(|path| path.as_str());
 
     // Just print MIME and quit
-    if args.is_present("mime") {
+    if args.get_flag("mime") {
         get_mime(path)
             .map_err(|e| eprintln!("{}", e)).
             ok();
@@ -203,7 +214,7 @@ fn process_args(args: clap::ArgMatches, core: WidgetCore) {
         std::process::exit(1)
     }
 
-    if args.is_present("update") {
+    if args.get_flag("update") {
         crate::config_installer::update_config(core, true).log();
     }
 

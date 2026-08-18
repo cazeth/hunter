@@ -35,9 +35,9 @@ lazy_static! {
 
 
 pub fn set_argv_config(args: clap::ArgMatches) -> HResult<()> {
-    let animation = args.is_present("animation-off");
-    let show_hidden = args.is_present("show-hidden");
-    let icons = args.is_present("icons");
+    let animation = args.get_flag("animation-off");
+    let show_hidden = args.get_flag("show-hidden");
+    let icons = args.get_flag("icons");
 
     let mut config = ArgvConfig::new();
 
@@ -53,7 +53,7 @@ pub fn set_argv_config(args: clap::ArgMatches) -> HResult<()> {
         config.icons = Some(true)
     }
 
-    if let Some(mode) = args.value_of("graphics") {
+    if let Some(mode) = args.get_one::<String>("graphics") {
         if mode == "auto" {
             config.graphics = Some(detect_g_mode());
         } else {
