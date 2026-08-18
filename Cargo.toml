@@ -42,7 +42,7 @@ strum_macros = "0.15"
 rust-ini = "0.13"
 derivative = "1.0.3"
 itertools = "0.8"
-nix = "0.17"
+nix = { version = "0.30", features = ["dir", "fs", "signal", "process"] }
 strip-ansi-escapes = "0.1"
 crossbeam = "0.8"
 parking_lot = "0.12"

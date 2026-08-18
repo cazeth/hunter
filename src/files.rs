@@ -3,6 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Index;
 use std::fs::Metadata;
 use std::os::unix::fs::MetadataExt;
+use std::os::fd::AsRawFd;
+use std::os::fd::BorrowedFd;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::Sender;
@@ -413,7 +415,9 @@ pub struct linux_dirent {
 // report the kind of file in d_type. Currently that means calling
 // stat on ALL files and ithrowing away the result. This is wasteful.
 #[cfg(target_os = "linux")]
-pub fn from_getdents(fd: i32, path: &Path, nothidden: &AtomicUsize)  -> Result<Vec<File>, FileError>
+pub fn from_getdents(fd: BorrowedFd<'_>,
+                     path: &Path,
+                     nothidden: &AtomicUsize)  -> Result<Vec<File>, FileError>
 {
     use libc::SYS_getdents64;
 
@@ -440,7 +444,10 @@ pub fn from_getdents(fd: i32, path: &Path, nothidden: &AtomicUsize)  -> Result<V
     let result = crossbeam::scope(|s| {
         loop {
             // Returns number of bytes written to buffer
-            let nread = unsafe { libc::syscall(SYS_getdents64, fd, bufptr, BUFFER_SIZE) };
+            let nread = unsafe { libc::syscall(SYS_getdents64,
+                                               fd.as_raw_fd(),
+                                               bufptr,
+                                               BUFFER_SIZE) };
 
             // 0 means done, -1 means an error happened
             if nread == 0 {
@@ -606,7 +613,7 @@ impl Files {
     // Use getdents64 on Linux
     #[cfg(target_os = "linux")]
     pub fn new_from_path_cancellable(path: &Path, stale: Stale) -> HResult<Files> {
-        use std::os::unix::io::AsRawFd;
+        use std::os::fd::AsFd;
 
         let nonhidden = AtomicUsize::default();
 
@@ -615,7 +622,7 @@ impl Files {
                              Mode::empty())
             .map_err(|e| FileError::OpenDir(e))?;
 
-        let direntries = from_getdents(dir.as_raw_fd(), path, &nonhidden)?;
+        let direntries = from_getdents(dir.as_fd(), path, &nonhidden)?;
 
         if stale.is_stale()? {
             HError::stale()?;
@@ -635,7 +642,7 @@ impl Files {
 
     #[cfg(not(target_os = "linux"))]
     pub fn new_from_path_cancellable(path: &Path, stale: Stale) -> HResult<Files> {
-        use std::os::unix::io::AsRawFd;
+        use std::os::fd::AsFd;
 
         let nonhidden = AtomicUsize::default();
 
@@ -644,7 +651,7 @@ impl Files {
                                 Mode::empty())
             .map_err(|e| FileError::OpenDir(e))?;
 
-        let dirfd = dir.as_raw_fd();
+        let dirfd = dir.as_fd();
 
         let direntries  = dir
             .iter()
@@ -1169,7 +1176,7 @@ impl File {
 
     pub fn new_from_nixentry(direntry: Entry,
                              path: &Path,
-                             dirfd: i32) -> File {
+                             dirfd: BorrowedFd<'_>) -> File {
         // Scary stuff to avoid some of the overhead in Rusts conversions
         // Speedup is a solid ~10%
         let name: &OsStr = unsafe {
