@@ -1,11 +1,16 @@
-use notify::{RecommendedWatcher, Watcher, DebouncedEvent, RecursiveMode};
+use notify::event::ModifyKind;
+use notify::event::RenameMode;
+use notify::Event;
+use notify::EventKind;
+use notify::RecommendedWatcher;
+use notify::RecursiveMode;
+use notify::Watcher;
 
 use crate::async_value::{Async, Stale};
 
 use std::sync::{Arc, RwLock, Weak};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::collections::{HashMap, HashSet};
-use std::time::Duration;
 use std::path::{Path, PathBuf};
 
 use crate::files::{Files, File, SortBy};
@@ -138,8 +143,7 @@ pub struct FsCache {
 impl FsCache {
     pub fn new(sender: Sender<Events>) -> FsCache {
         let (tx_fs_event, rx_fs_event) = channel();
-        let watcher = RecommendedWatcher::new(tx_fs_event,
-                                              Duration::from_secs(2)).unwrap();
+        let watcher = notify::recommended_watcher(tx_fs_event).unwrap();
 
 
         let fs_cache = FsCache {
@@ -456,30 +460,33 @@ impl FsEvent {
 }
 
 use std::convert::TryFrom;
-impl TryFrom<DebouncedEvent> for FsEvent {
+impl TryFrom<Event> for FsEvent {
     type Error = HError;
 
-    fn try_from(event: DebouncedEvent) -> HResult<Self> {
-        let event = match event {
-            DebouncedEvent::Create(path)
+    fn try_from(event: Event) -> HResult<Self> {
+        let mut paths = event.paths.into_iter();
+        let path = paths.next().ok_or(HError::NoneError)?;
+
+        let event = match event.kind {
+            EventKind::Create(_)
                 => FsEvent::Create(File::new_from_path(&path)?),
 
-            DebouncedEvent::Remove(path)
+            EventKind::Remove(_)
                 => FsEvent::Remove(File::new_from_path(&path)?),
 
-            DebouncedEvent::Write(path)       |
-            DebouncedEvent::Chmod(path)
-                =>  FsEvent::Change(File::new_from_path(&path)?),
+            EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
+                let new_path = paths.next().ok_or(HError::NoneError)?;
+                FsEvent::Rename(File::new_from_path(&path)?,
+                                File::new_from_path(&new_path)?)
+            }
+            EventKind::Modify(ModifyKind::Name(RenameMode::From))
+                => FsEvent::Remove(File::new_from_path(&path)?),
 
-            DebouncedEvent::Rename(old_path, new_path)
-                => FsEvent::Rename(File::new_from_path(&old_path)?,
-                                   File::new_from_path(&new_path)?),
+            EventKind::Modify(ModifyKind::Name(RenameMode::To))
+                => FsEvent::Create(File::new_from_path(&path)?),
 
-            DebouncedEvent::Error(err, path)
-                => Err(HError::INotifyError(format!("{}, {:?}", err, path)))?,
-            DebouncedEvent::Rescan
-                => Err(HError::INotifyError("Need to rescan".to_string()))?,
-            // Ignore NoticeRemove/NoticeWrite
+            EventKind::Modify(_)
+                => FsEvent::Change(File::new_from_path(&path)?),
             _ => None.ok_or(HError::NoneError)?,
         };
 
@@ -488,12 +495,12 @@ impl TryFrom<DebouncedEvent> for FsEvent {
 }
 
 
-fn watch_fs(rx_fs_events: Receiver<DebouncedEvent>,
+fn watch_fs(rx_fs_events: Receiver<notify::Result<Event>>,
             fs_event_dispatcher: FsEventDispatcher,
             sender: Sender<Events>) {
     std::thread::spawn(move || -> HResult<()> {
         let transform_event =
-            move |event: DebouncedEvent| -> HResult<(File, FsEvent)> {
+            move |event: Event| -> HResult<(File, FsEvent)> {
                 let path = event.get_source_path()?;
                 let dirpath = path.parent()
                     .map(|path| path)
@@ -506,21 +513,36 @@ fn watch_fs(rx_fs_events: Receiver<DebouncedEvent>,
         let collect_events =
             move || -> HResult<HashMap<File, Vec<FsEvent>>> {
                 let event = loop {
-                    use DebouncedEvent::*;
-
-                    let event = rx_fs_events.recv()?;
-                    match event {
-                        NoticeWrite(_) => continue,
-                        NoticeRemove(_) => continue,
-                        _ => break std::iter::once(event)
+                    let event = match rx_fs_events.recv()? {
+                        Ok(event) => event,
+                        Err(error) => {
+                            HError::log::<()>(&format!("Watcher error: {}",
+                                                       error)).ok();
+                            continue;
+                        }
+                    };
+                    if let EventKind::Access(_) = event.kind {
+                        continue;
                     }
+
+                    break std::iter::once(event);
                 };
 
                 // Wait a bit to batch up more events
                 std::thread::sleep(std::time::Duration::from_millis(100));
 
                 // Batch up all other remaining events received so far
-                let events = event.chain(rx_fs_events.try_iter())
+                let pending = rx_fs_events.try_iter().filter_map(|result| {
+                    match result {
+                        Ok(event) => Some(event),
+                        Err(error) => {
+                            HError::log::<()>(&format!("Watcher error: {}",
+                                                       error)).ok();
+                            None
+                        }
+                    }
+                });
+                let mut events = event.chain(pending)
                     .map(transform_event)
                     .flatten()
                     .fold(HashMap::with_capacity(1000), |mut events, (dir, event)| {
@@ -530,6 +552,8 @@ fn watch_fs(rx_fs_events: Receiver<DebouncedEvent>,
 
                         events
                     });
+
+                events.values_mut().for_each(deduplicate_renames);
 
                 Ok(events)
             };
@@ -550,27 +574,32 @@ fn watch_fs(rx_fs_events: Receiver<DebouncedEvent>,
     });
 }
 
+fn deduplicate_renames(events: &mut Vec<FsEvent>) {
+    let renames: Vec<_> = events
+        .iter()
+        .filter_map(|event| match event {
+            FsEvent::Rename(from, to) => Some((from.clone(), to.clone())),
+            _ => None
+        })
+        .collect();
 
+    events.retain(|event| match event {
+        FsEvent::Remove(file) => !renames.iter().any(|(from, _)| from == file),
+        FsEvent::Create(file) => !renames.iter().any(|(_, to)| to == file),
+        _ => true
+    });
+}
 
 trait PathFromEvent {
     fn get_source_path(&self) -> HResult<&PathBuf>;
 }
 
-impl PathFromEvent for DebouncedEvent {
+impl PathFromEvent for Event {
     fn get_source_path(&self) -> HResult<&PathBuf> {
-        match self {
-            DebouncedEvent::Create(path)      |
-            DebouncedEvent::Write(path)       |
-            DebouncedEvent::Chmod(path)       |
-            DebouncedEvent::Remove(path)      |
-            DebouncedEvent::NoticeWrite(path) |
-            DebouncedEvent::NoticeRemove(path)  => Ok(path),
-            DebouncedEvent::Rename(old_path, _) => Ok(old_path),
-            DebouncedEvent::Error(err, path)
-                => Err(HError::INotifyError(format!("{}, {:?}", err, path))),
-            DebouncedEvent::Rescan
-                => Err(HError::INotifyError("Need to rescan".to_string()))
-
-        }
+        self.paths
+            .first()
+            .ok_or(HError::INotifyError(format!("Event carried no path: {:?}",
+                                                self.kind)))
     }
 }
+
